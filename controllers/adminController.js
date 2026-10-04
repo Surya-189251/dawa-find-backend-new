@@ -1,6 +1,11 @@
 const Pharmacy = require('../models/Pharmacy');
 const Inventory = require('../models/Inventory');
+const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // GET /api/v1/admin/pharmacies?status=pending
 exports.listPharmacies = asyncHandler(async (req, res) => {
@@ -21,6 +26,87 @@ exports.listPharmacies = asyncHandler(async (req, res) => {
 
   res.json({
     count: items.length,
+    items,
+  });
+});
+
+// GET /api/v1/admin/users
+// Optional query params:
+//   role=user|pharmacy|admin
+//   q=name/email/phone text search
+//   limit=1..500
+exports.listUsers = asyncHandler(async (req, res) => {
+  const filter = {};
+
+  const allowedRoles = ['user', 'pharmacy', 'admin'];
+
+  if (req.query.role) {
+    if (!allowedRoles.includes(req.query.role)) {
+      return res.status(400).json({
+        message: 'role must be user, pharmacy, or admin',
+      });
+    }
+
+    filter.role = req.query.role;
+  }
+
+  const search = String(req.query.q || '').trim();
+
+  if (search) {
+    const safeSearch = escapeRegex(search);
+    const pattern = new RegExp(safeSearch, 'i');
+
+    filter.$or = [
+      { name: pattern },
+      { email: pattern },
+      { phone: pattern },
+    ];
+  }
+
+  const requestedLimit = Number(req.query.limit);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.floor(requestedLimit), 1), 500)
+    : 300;
+
+  const [items, roleRows, total] = await Promise.all([
+    User.find(filter)
+      .select('name email phone role pharmacy createdAt updatedAt')
+      .populate(
+        'pharmacy',
+        'name address licenceNo verificationStatus'
+      )
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean(),
+
+    User.aggregate([
+      {
+        $group: {
+          _id: '$role',
+          n: { $sum: 1 },
+        },
+      },
+    ]),
+
+    User.countDocuments({}),
+  ]);
+
+  const roleCounts = {
+    total,
+    user: 0,
+    pharmacy: 0,
+    admin: 0,
+  };
+
+  roleRows.forEach((row) => {
+    if (allowedRoles.includes(row._id)) {
+      roleCounts[row._id] = row.n;
+    }
+  });
+
+  res.json({
+    count: items.length,
+    roleCounts,
     items,
   });
 });
@@ -72,7 +158,6 @@ exports.metrics = asyncHandler(async (_req, res) => {
     activeShops,
     totalPharmacies,
   ] = await Promise.all([
-    // Pharmacy counts by verification status
     Pharmacy.aggregate([
       {
         $group: {
@@ -82,7 +167,6 @@ exports.metrics = asyncHandler(async (_req, res) => {
       },
     ]),
 
-    // Inventory counts by status
     Inventory.aggregate([
       {
         $group: {
@@ -92,21 +176,17 @@ exports.metrics = asyncHandler(async (_req, res) => {
       },
     ]),
 
-    // Inventory rows updated during the last 24 hours
     Inventory.countDocuments({
       lastUpdatedAt: { $gte: dayAgo },
       status: { $ne: 'unknown' },
     }),
 
-    // Total inventory rows
     Inventory.countDocuments({}),
 
-    // Pharmacies that updated inventory during the last 24 hours
     Inventory.distinct('pharmacy', {
       lastUpdatedAt: { $gte: dayAgo },
     }),
 
-    // Total pharmacies
     Pharmacy.countDocuments({}),
   ]);
 
