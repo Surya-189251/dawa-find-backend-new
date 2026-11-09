@@ -1,5 +1,12 @@
 require('dotenv').config();
 
+// Without JWT_SECRET every login fails with a confusing jsonwebtoken error.
+// Stop at startup with a clear message instead.
+if (!process.env.JWT_SECRET) {
+  console.error('JWT_SECRET is not set. Add it to .env (local) or the Render environment.');
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
