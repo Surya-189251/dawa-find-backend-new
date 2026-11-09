@@ -7,15 +7,19 @@ const asyncHandler = require('../utils/asyncHandler');
 // tri-state existed) if it still carries a positive count.
 const AVAILABLE = { $or: [{ status: 'in_stock' }, { status: { $exists: false }, stock: { $gt: 0 } }] };
 
+// Partner-only fields (licence number, admin review notes, account ids) must not
+// leak through the public pharmacy endpoints.
+const PUBLIC_PHARMACY = '-licenceNo -rejectionReason -verifiedBy -owner';
+
 // GET /api/pharmacies  — list all (for the landing-page map)
 exports.list = asyncHandler(async (_req, res) => {
-  const items = await Pharmacy.find().limit(2000);
+  const items = await Pharmacy.find().select(PUBLIC_PHARMACY).limit(2000);
   res.json(items);
 });
 
 // GET /api/pharmacies/:id  — single pharmacy details
 exports.getById = asyncHandler(async (req, res) => {
-  const p = await Pharmacy.findById(req.params.id);
+  const p = await Pharmacy.findById(req.params.id).select(PUBLIC_PHARMACY);
   if (!p) return res.status(404).json({ message: 'Pharmacy not found' });
   res.json(p);
 });
@@ -35,7 +39,7 @@ exports.nearby = asyncHandler(async (req, res) => {
         $maxDistance: radius,
       },
     },
-  }).limit(100);
+  }).select(PUBLIC_PHARMACY).limit(100);
   res.json(items);
 });
 
@@ -75,7 +79,7 @@ exports.nearbyMedicine = asyncHandler(async (req, res) => {
     sku: { $in: skus },
     pharmacy: { $in: nearbyIds },
     ...AVAILABLE,
-  }).populate('pharmacy').populate('medicine');
+  }).populate('pharmacy', PUBLIC_PHARMACY).populate('medicine');
 
   res.json(inv);
 });

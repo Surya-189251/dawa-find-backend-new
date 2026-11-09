@@ -27,7 +27,7 @@ exports.pharmaciesForSku = asyncHandler(async (req, res) => {
   const inv = await Inventory.find({
     sku,
     $or: [{ status: 'in_stock' }, { status: { $exists: false }, stock: { $gt: 0 } }],
-  }).populate('pharmacy');
+  }).populate('pharmacy', '-licenceNo -rejectionReason -verifiedBy -owner');
   let rows = inv.map((i) => ({
     pharmacy: i.pharmacy,
     status: i.status,

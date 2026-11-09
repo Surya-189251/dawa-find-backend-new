@@ -362,7 +362,7 @@ async function offersForSkus(
   }
 
   const rows = await Inventory.find(query)
-    .populate('pharmacy')
+    .populate('pharmacy', '-licenceNo -rejectionReason -verifiedBy -owner')
     .limit(200);
 
   return rows
