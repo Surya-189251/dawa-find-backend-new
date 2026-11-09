@@ -20,7 +20,10 @@ function publicUser(user) {
 }
 
 exports.register = asyncHandler(async (req, res) => {
-  const { name, email, password, phone, role } = req.body;
+  const { name, password, phone, role } = req.body;
+  // Emails are stored lower-cased (see models/User.js), so normalise before
+  // looking them up or 'Ravi@Gmail.com' can never log in again.
+  const email = String(req.body.email || '').trim().toLowerCase();
   if (!name || !email || !password)
     return res.status(400).json({ message: 'name, email, password are required' });
 
@@ -38,7 +41,8 @@ exports.register = asyncHandler(async (req, res) => {
 });
 
 exports.login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = String(req.body.email || '').trim().toLowerCase();
   const user = await User.findOne({ email });
   if (!user) return res.status(401).json({ message: 'Invalid credentials' });
   const ok = await user.matchPassword(password);
