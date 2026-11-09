@@ -2,6 +2,7 @@ const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const Pharmacy = require('../models/Pharmacy');
 const asyncHandler = require('../utils/asyncHandler');
+const { parseRadius } = require('../utils/radius');
 
 const {
   visionJson,
@@ -607,11 +608,9 @@ exports.readPrescription =
         );
 
       const radius =
-        parseInt(
+        parseRadius(
           req.body.radius ||
-          req.query.radius ||
-          '5000',
-          10
+          req.query.radius
         );
 
       /* -------------------------

@@ -2,6 +2,7 @@ const Pharmacy = require('../models/Pharmacy');
 const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const asyncHandler = require('../utils/asyncHandler');
+const { parseRadius } = require('../utils/radius');
 
 // A row counts as available if the shop said so, or (legacy rows written before
 // tri-state existed) if it still carries a positive count.
@@ -24,7 +25,7 @@ exports.getById = asyncHandler(async (req, res) => {
 exports.nearby = asyncHandler(async (req, res) => {
   const lat = parseFloat(req.query.lat);
   const lon = parseFloat(req.query.lon);
-  const radius = parseInt(req.query.radius || '5000', 10); // metres
+  const radius = parseRadius(req.query.radius); // metres
   if (Number.isNaN(lat) || Number.isNaN(lon))
     return res.status(400).json({ message: 'lat and lon are required' });
 
@@ -44,7 +45,7 @@ exports.nearbyMedicine = asyncHandler(async (req, res) => {
   const name = (req.query.name || '').trim();
   const lat = parseFloat(req.query.lat);
   const lon = parseFloat(req.query.lon);
-  const radius = parseInt(req.query.radius || '5000', 10);
+  const radius = parseRadius(req.query.radius);
   if (!name) return res.status(400).json({ message: 'medicine name is required' });
   if (Number.isNaN(lat) || Number.isNaN(lon))
     return res.status(400).json({ message: 'lat and lon are required' });
