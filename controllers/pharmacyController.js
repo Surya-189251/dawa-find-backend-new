@@ -44,6 +44,10 @@ exports.nearby = asyncHandler(async (req, res) => {
   res.json(items);
 });
 
+// Treat the search text literally: names like 'Paracetamol+Caffeine' or
+// 'Vitamin C (500mg)' would otherwise be read as a broken regular expression.
+const escapeRe = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // GET /api/pharmacies/medicines/nearby?name=..&lat=..&lon=..&radius=5000
 exports.nearbyMedicine = asyncHandler(async (req, res) => {
   const name = (req.query.name || '').trim();
@@ -57,9 +61,9 @@ exports.nearbyMedicine = asyncHandler(async (req, res) => {
   // 1. Find matching medicine SKUs by name or brand or sku
   const meds = await Medicine.find({
     $or: [
-      { name: { $regex: name, $options: 'i' } },
-      { brand: { $regex: name, $options: 'i' } },
-      { sku: { $regex: name, $options: 'i' } },
+      { name: { $regex: escapeRe(name), $options: 'i' } },
+      { brand: { $regex: escapeRe(name), $options: 'i' } },
+      { sku: { $regex: escapeRe(name), $options: 'i' } },
     ],
   }).select('_id sku name');
   if (!meds.length) return res.json([]);
