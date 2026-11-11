@@ -2,6 +2,7 @@ const Medicine = require('../models/Medicine');
 const Inventory = require('../models/Inventory');
 const Pharmacy = require('../models/Pharmacy');
 const asyncHandler = require('../utils/asyncHandler');
+const { parseRadius } = require('../utils/radius');
 
 // GET /api/v1/medicines  — list all catalog SKUs
 exports.list = asyncHandler(async (_req, res) => {
@@ -22,7 +23,7 @@ exports.pharmaciesForSku = asyncHandler(async (req, res) => {
   const sku = req.params.sku.toUpperCase();
   const lat = parseFloat(req.query.lat);
   const lon = parseFloat(req.query.lon);
-  const radius = parseInt(req.query.radius || '5000', 10);
+  const radius = parseRadius(req.query.radius);
 
   const inv = await Inventory.find({
     sku,
