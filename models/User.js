@@ -30,6 +30,8 @@ userSchema.pre('save', async function (next) {
 });
 
 userSchema.methods.matchPassword = function (entered) {
+  // A missing password is simply a failed login, not a bcrypt crash (500).
+  if (typeof entered !== 'string' || !entered) return Promise.resolve(false);
   return bcrypt.compare(entered, this.password);
 };
 

@@ -180,12 +180,38 @@ app.use(
 */
 
 app.use((err, _req, res, _next) => {
+  // Bad input is the client's fault: answer 400/409 with a clear message
+  // instead of a 500 that exposes internal errors.
+  if (err.name === 'ValidationError') {
+    // Build our own messages: Mongoose's defaults echo the submitted value
+    // (including passwords) back to the client.
+    const messages = Object.values(err.errors).map((e) => {
+      if (e.kind === 'required') return `${e.path} is required`;
+      if (e.kind === 'minlength') return `${e.path} must be at least ${e.properties.minlength} characters`;
+      return `${e.path} is invalid`;
+    });
+    return res.status(400).json({ message: messages.join('. ') });
+  }
+
+  if (err.name === 'CastError') {
+    return res.status(400).json({ message: `Invalid ${err.path}` });
+  }
+
+  if (err.code === 11000) {
+    return res.status(409).json({ message: 'That record already exists' });
+  }
+
+  if (err.message && err.message.startsWith('CORS blocked origin')) {
+    return res.status(403).json({ message: err.message });
+  }
+
   console.error(err);
 
   res.status(500).json({
     message:
-      err.message ||
-      'Server error',
+      process.env.NODE_ENV === 'production'
+        ? 'Server error'
+        : err.message || 'Server error',
   });
 });
 
